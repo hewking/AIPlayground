@@ -8,6 +8,7 @@ from src.core.base import BaseLLM
 from src.core.exceptions import APIKeyNotFoundError, ModelNotAvailableError
 import asyncio
 import re
+import traceback
 
 
 class GitLabAIReviewer:
@@ -163,7 +164,6 @@ class GitLabAIReviewer:
         except Exception as e:
             print(f"Error reviewing code: {str(e)}")
             print(f"Error type: {type(e)}")
-            import traceback
 
             print(f"Traceback: {traceback.format_exc()}")
             return None
@@ -203,8 +203,6 @@ class GitLabAIReviewer:
                     print(f"MR {mr.iid} has conflicts, skipping")
         except Exception as e:
             print(f"Error in review process: {str(e)}")
-            import traceback
-
             print(f"Traceback: {traceback.format_exc()}")
             raise
 
