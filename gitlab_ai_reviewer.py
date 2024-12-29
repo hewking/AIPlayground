@@ -9,7 +9,9 @@ from src.core.exceptions import APIKeyNotFoundError, ModelNotAvailableError
 import asyncio
 import re
 import traceback
+from dotenv import load_dotenv
 
+load_dotenv(dotenv_path=".env")
 
 class GitLabAIReviewer:
     def __init__(
