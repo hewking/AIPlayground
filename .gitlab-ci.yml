@@ -1,0 +1,13 @@
+# .gitlab-ci.yml
+ai-code-review:
+  image: python:3.9
+  variables:
+    GITLAB_TOKEN: ${GITLAB_API_TOKEN}
+    OPENAI_API_KEY: ${OPENAI_API_KEY}
+  script:
+    - pip install python-gitlab openai
+    - python ai_reviewer.py
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - when: never
