@@ -1,13 +1,49 @@
 # .gitlab-ci.yml
+image: python:3.11-slim
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+# 定义缓存配置
+cache:
+  paths:
+    - .pip-cache/
+    - venv/
+
+stages:
+  - review
+
 ai-code-review:
-  image: python:3.9
-  variables:
-    GITLAB_TOKEN: ${GITLAB_API_TOKEN}
-    OPENAI_API_KEY: ${OPENAI_API_KEY}
+  stage: review
+  before_script:
+    - python -V
+    - python -m venv venv
+    - . venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
   script:
-    - pip install python-gitlab openai
-    - python ai_reviewer.py
+    - |
+      cat > review_runner.py << EOL
+      import asyncio
+      import os
+      from gitlab_ai_reviewer import GitLabAIReviewer, main
+
+      if __name__ == "__main__":
+          # CI/CD 环境中的 MR 信息
+          os.environ["GITLAB_PROJECT_ID"] = os.environ["CI_PROJECT_ID"]
+          os.environ["REVIEW_MR_IID"] = os.environ["CI_MERGE_REQUEST_IID"]
+          
+          asyncio.run(main())
+      EOL
+    - python review_runner.py
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
     - when: never
+  variables:
+    GITLAB_URL: ${CI_SERVER_URL}
+    GITLAB_TOKEN: ${GITLAB_API_TOKEN}
+    REVIEW_MODEL: "deepseek"
+    DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+    OPENAI_API_KEY: ${OPENAI_API_KEY}
+    PYTHONPATH: "${CI_PROJECT_DIR}"

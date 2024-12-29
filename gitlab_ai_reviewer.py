@@ -1,59 +1,120 @@
 import gitlab
-import openai
-import os
 from datetime import datetime
+import os
+from typing import Optional, List, Dict, Any
+from src.models.openai_llm import OpenAILLM
+from src.models.deepseek_llm import DeepSeekLLM
+from src.core.base import BaseLLM
+from src.core.exceptions import APIKeyNotFoundError, ModelNotAvailableError
+import asyncio
 
 class GitLabAIReviewer:
-    def __init__(self, gitlab_url, private_token, project_id, openai_key):
+    def __init__(
+        self, 
+        gitlab_url: str, 
+        private_token: str, 
+        project_id: int,
+        model_type: str = "deepseek",  # 默认使用 deepseek
+        max_files: int = 10,
+        max_lines: int = 500
+    ):
         self.gl = gitlab.Gitlab(gitlab_url, private_token=private_token)
         self.project = self.gl.projects.get(project_id)
-        openai.api_key = openai_key
+        self.max_files = max_files
+        self.max_lines = max_lines
+        self.llm = self._init_llm(model_type)
 
-    def get_merge_requests(self, state='opened'):
+    def _init_llm(self, model_type: str) -> BaseLLM:
+        """初始化 LLM 模型"""
+        if model_type == "deepseek":
+            return DeepSeekLLM()
+        elif model_type == "openai":
+            return OpenAILLM()
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+    async def get_merge_requests(self, state: str = 'opened') -> List[Any]:
         """获取待审查的合并请求"""
         return self.project.mergerequests.list(state=state)
 
-    def get_changes(self, mr):
+    def get_changes(self, mr: Any) -> List[Dict[str, Any]]:
         """获取合并请求的具体改动"""
         changes = mr.changes()
-        return changes['changes']
+        return changes['changes'][:self.max_files]  # 限制文件数量
 
-    def review_code(self, code_diff):
-        """使用 OpenAI API 审查代码"""
-        prompt = f"""
-        请审查以下代码改动,重点关注:
-        1. 代码质量和最佳实践
-        2. 潜在的 bug
-        3. 安全隐患
-        4. 性能问题
-        5. 可维护性
+    def _should_review_file(self, file_path: str) -> bool:
+        """判断文件是否需要审查"""
+        ignore_patterns = [
+            r'\.lock$',
+            r'package-lock\.json$',
+            r'yarn\.lock$',
+            r'\.gitignore$',
+            r'\.env.*',
+            r'\.md$',
+            r'\.txt$',
+            r'\.csv$',
+            r'\.json$',
+            r'\.yaml$',
+            r'\.yml$',
+        ]
+        return not any(re.search(pattern, file_path) for pattern in ignore_patterns)
 
-        代码改动:
-        {code_diff}
-        """
+    def _prepare_review_prompt(self, change: Dict[str, Any]) -> str:
+        """准备代码审查提示"""
+        file_path = change.get('new_path', '')
+        diff = change.get('diff', '')
+        
+        if len(diff.split('\n')) > self.max_lines:
+            diff = '\n'.join(diff.split('\n')[:self.max_lines]) + "\n... (diff too long, truncated)"
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "你是一个专业的代码审查助手,请提供详细的代码审查意见。"},
-                {"role": "user", "content": prompt}
-            ]
+        return f"""作为高级开发工程师，请审查以下代码改动。
+
+文件路径: {file_path}
+
+代码改动:
+{diff}
+
+请根据以下准则进行审查：
+1. 确保代码改动符合项目规范和最佳实践。
+2. 检查是否存在潜在的错误或改进空间。
+3. 提供详细的审查意见和建议。
+"""
+
+async def main():
+    """CI 环境中的入口函数"""
+    try:
+        # 获取环境变量
+        gitlab_url = os.getenv("GITLAB_URL")
+        gitlab_token = os.getenv("GITLAB_TOKEN")
+        project_id = os.getenv("GITLAB_PROJECT_ID")
+        mr_iid = os.getenv("REVIEW_MR_IID")
+        model_type = os.getenv("REVIEW_MODEL", "deepseek")
+        
+        # 验证必要的环境变量
+        if not all([gitlab_url, gitlab_token, project_id, mr_iid]):
+            raise ValueError(
+                "Missing required environment variables. "
+                "Please ensure GITLAB_URL, GITLAB_TOKEN, "
+                "GITLAB_PROJECT_ID, and REVIEW_MR_IID are set."
+            )
+
+        print(f"Starting code review for MR !{mr_iid}")
+        
+        reviewer = GitLabAIReviewer(
+            gitlab_url=gitlab_url,
+            private_token=gitlab_token,
+            project_id=int(project_id),
+            model_type=model_type,
+            max_files=int(os.getenv("REVIEW_MAX_FILES", "10")),
+            max_lines=int(os.getenv("REVIEW_MAX_LINES", "500"))
         )
-        return response.choices[0].message['content']
 
-    def post_review_comment(self, mr, review_comment):
-        """发布审查评论"""
-        mr.notes.create({
-            'body': f"AI 代码审查意见:\n\n{review_comment}\n\n"
-                   f"_自动审查时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_"
-        })
+        await reviewer.run(mr_iid=int(mr_iid))
+        print("Code review completed successfully")
+        
+    except Exception as e:
+        print(f"Error during code review: {str(e)}")
+        raise
 
-    def run(self):
-        """运行审查流程"""
-        mrs = self.get_merge_requests()
-        for mr in mrs:
-            if not mr.has_conflicts:
-                changes = self.get_changes(mr)
-                for change in changes:
-                    review_comment = self.review_code(change['diff'])
-                    self.post_review_comment(mr, review_comment)
+if __name__ == "__main__":
+    asyncio.run(main())
