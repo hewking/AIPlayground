@@ -22,6 +22,8 @@ ai-code-review:
     - pip install --upgrade pip
     - pip install -r requirements.txt
   script:
+    - echo "Project ID: $CI_PROJECT_ID"
+    - echo "MR IID: $CI_MERGE_REQUEST_IID"
     - |
       cat > review_runner.py << EOL
       import asyncio
@@ -43,7 +45,10 @@ ai-code-review:
   variables:
     GITLAB_URL: ${CI_SERVER_URL}
     GITLAB_TOKEN: ${GITLAB_API_TOKEN}
+    GITLAB_PROJECT_ID: ${CI_PROJECT_ID}
+    REVIEW_MR_IID: ${CI_MERGE_REQUEST_IID}
     REVIEW_MODEL: "deepseek"
     DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
     OPENAI_API_KEY: ${OPENAI_API_KEY}
     PYTHONPATH: "${CI_PROJECT_DIR}"
+    CI_DEBUG_TRACE: "true"

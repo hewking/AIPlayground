@@ -83,19 +83,36 @@ class GitLabAIReviewer:
 async def main():
     """CI 环境中的入口函数"""
     try:
-        # 获取环境变量
-        gitlab_url = os.getenv("GITLAB_URL")
-        gitlab_token = os.getenv("GITLAB_TOKEN")
-        project_id = os.getenv("GITLAB_PROJECT_ID")
-        mr_iid = os.getenv("REVIEW_MR_IID")
+        # 从 CI 环境变量获取值
+        if os.getenv("CI_SERVER_URL"):  # 检查是否在 CI 环境中
+            gitlab_url = os.getenv("CI_SERVER_URL")
+            gitlab_token = os.getenv("GITLAB_API_TOKEN")
+            project_id = os.getenv("CI_PROJECT_ID")
+            mr_iid = os.getenv("CI_MERGE_REQUEST_IID")
+        else:
+            # 从 .env 文件获取本地开发环境的值
+            gitlab_url = os.getenv("GITLAB_URL")
+            gitlab_token = os.getenv("GITLAB_TOKEN")
+            project_id = os.getenv("GITLAB_PROJECT_ID")
+            mr_iid = os.getenv("REVIEW_MR_IID")
+
         model_type = os.getenv("REVIEW_MODEL", "deepseek")
+        
+        # 打印调试信息
+        print(f"GitLab URL: {gitlab_url}")
+        print(f"Project ID: {project_id}")
+        print(f"MR IID: {mr_iid}")
         
         # 验证必要的环境变量
         if not all([gitlab_url, gitlab_token, project_id, mr_iid]):
+            missing_vars = []
+            if not gitlab_url: missing_vars.append("GITLAB_URL/CI_SERVER_URL")
+            if not gitlab_token: missing_vars.append("GITLAB_TOKEN/GITLAB_API_TOKEN")
+            if not project_id: missing_vars.append("GITLAB_PROJECT_ID/CI_PROJECT_ID")
+            if not mr_iid: missing_vars.append("REVIEW_MR_IID/CI_MERGE_REQUEST_IID")
+            
             raise ValueError(
-                "Missing required environment variables. "
-                "Please ensure GITLAB_URL, GITLAB_TOKEN, "
-                "GITLAB_PROJECT_ID, and REVIEW_MR_IID are set."
+                f"Missing required environment variables: {', '.join(missing_vars)}"
             )
 
         print(f"Starting code review for MR !{mr_iid}")
