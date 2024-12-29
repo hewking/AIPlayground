@@ -94,13 +94,13 @@ async def main():
         if os.getenv("CI_SERVER_URL"):  # 检查是否在 CI 环境中
             gitlab_url = os.getenv("CI_SERVER_URL")
             # 尝试两个可能的变量名
-            gitlab_token = os.getenv("GITLAB_TOKEN")
+            gitlab_token = os.getenv("GITLAB_API_TOKEN")
             project_id = os.getenv("CI_PROJECT_ID")
             mr_iid = os.getenv("CI_MERGE_REQUEST_IID")
         else:
             # 从 .env 文件获取本地开发环境的值
             gitlab_url = os.getenv("GITLAB_URL")
-            gitlab_token = os.getenv("GITLAB_TOKEN")
+            gitlab_token = os.getenv("GITLAB_API_TOKEN")
             project_id = os.getenv("GITLAB_PROJECT_ID")
             mr_iid = os.getenv("REVIEW_MR_IID")
 

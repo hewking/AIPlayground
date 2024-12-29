@@ -36,7 +36,7 @@ ai-code-review:
     - when: never
   variables:
     GITLAB_URL: ${CI_SERVER_URL}
-    GITLAB_TOKEN: ${GITLAB_API_TOKEN}
+    GITLAB_API_TOKEN: ${GITLAB_API_TOKEN}
     GITLAB_PROJECT_ID: ${CI_PROJECT_ID}
     REVIEW_MR_IID: ${CI_MERGE_REQUEST_IID}
     REVIEW_MODEL: "deepseek"
