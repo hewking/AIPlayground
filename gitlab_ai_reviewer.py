@@ -94,7 +94,7 @@ async def main():
         if os.getenv("CI_SERVER_URL"):  # 检查是否在 CI 环境中
             gitlab_url = os.getenv("CI_SERVER_URL")
             # 尝试两个可能的变量名
-            gitlab_token = os.getenv("GITLAB_API_TOKEN") or os.getenv("GITLAB_TOKEN")
+            gitlab_token = os.getenv("GITLAB_TOKEN")
             project_id = os.getenv("CI_PROJECT_ID")
             mr_iid = os.getenv("CI_MERGE_REQUEST_IID")
         else:
