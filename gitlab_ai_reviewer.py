@@ -75,6 +75,7 @@ class GitLabAIReviewer:
         file_path = change.get("new_path", "")
         diff = change.get("diff", "")
         file_extension = os.path.splitext(file_path)[1] if file_path else ""
+        is_react_native = "react-native" in file_path.lower() or "/rn/" in file_path.lower()
 
         if len(diff.split("\n")) > self.max_lines:
             diff = (
@@ -90,6 +91,51 @@ class GitLabAIReviewer:
 - 是否有适当的类型注解
 - 是否有必要的文档字符串
 - 是否正确使用异步特性""",
+            ".ts": """TypeScript 特定检查点:
+- 类型定义是否准确和完整
+- 是否正确使用 TypeScript 特性（泛型、接口、类型守卫等）
+- 是否避免了 any 类型的滥用
+- 是否正确处理 null/undefined
+- 是否使用了合适的类型推导
+- 是否遵循项目的 TSConfig 配置
+- 是否有不必要的类型断言
+- 错误处理是否完善
+- 是否考虑了类型的向后兼容性""" + ("""
+
+React Native 类型检查点:
+- 原生模块类型定义是否完整
+- 平台特定类型是否正确处理
+- 事件类型是否准确定义
+- 样式类型是否符合 React Native 规范
+- 导航参数类型是否完整
+- 第三方库类型集成是否正确""" if is_react_native else ""),
+            ".tsx": """React TypeScript 特定检查点:
+- 组件 Props 和 State 的类型定义是否完整
+- 是否正确使用 React.FC 或函数组件声明
+- 事件处理器的类型是否正确
+- 是否正确使用 React Hooks 的类型
+- 是否避免了不必要的重渲染
+- 组件生命周期的类型安全
+- 是否正确处理异步状态和加载状态
+- 是否遵循 React 最佳实践
+- 样式和主题的类型定义
+- 是否考虑了可访问性(ARIA)属性""" + ("""
+
+React Native 特定检查点:
+- 平台特定代码是否正确处理 (iOS/Android)
+- 性能优化（如 useCallback、useMemo 的使用）
+- 样式是否符合 React Native 最佳实践
+- 是否正确处理设备旋转和屏幕尺寸
+- 手势处理是否合理
+- 动画性能是否优化
+- 原生模块集成是否正确
+- 内存管理是否合理
+- 是否考虑了离线状态处理
+- 是否正确使用 React Native 的导航系统
+- 是否考虑了应用生命周期
+- 是否正确处理键盘事件
+- 是否考虑了深色模式支持
+- 无障碍功能支持是否完善""" if is_react_native else ""),
             ".js": """JavaScript 特定检查点:
 - 是否使用现代 ES6+ 特性
 - 是否正确处理异步操作
@@ -124,6 +170,20 @@ class GitLabAIReviewer:
 3. 是否有重复代码
 4. 是否有适当的注释
 5. 是否遵循 SOLID 原则"""
+
+        # 如果是 React Native 相关文件，添加额外的性能检查
+        if is_react_native:
+            performance_checks += """
+
+React Native 性能检查:
+1. 是否避免了不必要的重渲染
+2. 列表渲染是否使用了性能优化（如 FlatList）
+3. 图片加载和缓存策略是否合理
+4. JavaScript 线程是否有潜在的阻塞操作
+5. 动画是否使用了原生驱动
+6. 是否正确处理了内存泄漏
+7. Bridge 通信是否优化
+8. 是否合理使用了 Hermes 引擎特性"""
 
         return f"""作为高级开发工程师，请对以下代码变更进行全面审查。
 
