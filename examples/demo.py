@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.models.openai_llm import OpenAILLM
 from src.models.gemini_llm import GeminiLLM
+from src.models.deepseek_llm import DeepSeekLLM
 from src.core.exceptions import APIKeyNotFoundError
 
 async def test_completion(llm, prompt: str):
@@ -40,23 +41,26 @@ async def main():
     }
 
     try:
-        # 初始化模型
-        openai_llm = OpenAILLM()
-        gemini_llm = GeminiLLM()
+        # 初始化所有模型
+        models = [
+            DeepSeekLLM(),
+            # OpenAILLM(),
+            # GeminiLLM(),
+        ]
 
         # 测试基础文本生成
         print("\n=== 基础文本生成测试 ===")
-        for llm in [openai_llm, gemini_llm]:
+        for llm in models:
             await test_completion(llm, prompts["basic"])
 
         # 测试创意写作
         print("\n=== 创意写作测试 ===")
-        for llm in [openai_llm, gemini_llm]:
+        for llm in models:
             await test_completion(llm, prompts["creative"])
 
         # 测试流式输出
         print("\n=== 流式输出测试 ===")
-        for llm in [openai_llm, gemini_llm]:
+        for llm in models:
             await test_streaming(llm, prompts["stream"])
 
     except APIKeyNotFoundError as e:
