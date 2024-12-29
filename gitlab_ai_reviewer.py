@@ -7,6 +7,7 @@ from src.models.deepseek_llm import DeepSeekLLM
 from src.core.base import BaseLLM
 from src.core.exceptions import APIKeyNotFoundError, ModelNotAvailableError
 import asyncio
+import re
 
 class GitLabAIReviewer:
     def __init__(
@@ -87,6 +88,50 @@ class GitLabAIReviewer:
 3. 提供详细的审查意见和建议。
 """
 
+    async def review_code(self, change: Dict[str, Any]) -> Optional[str]:
+        """使用 LLM 审查代码"""
+        try:
+            if not self._should_review_file(change.get('new_path', '')):
+                return None
+
+            prompt = self._prepare_review_prompt(change)
+            review_comment = await self.llm.generate(prompt)
+            return review_comment
+        except Exception as e:
+            print(f"Error reviewing code: {str(e)}")
+            return None
+
+    def post_review_comment(self, mr: Any, file_path: str, review_comment: str) -> None:
+        """发布审查评论"""
+        comment = (
+            f"## AI 代码审查意见 - `{file_path}`\n\n"
+            f"{review_comment}\n\n"
+            f"---\n"
+            f"_自动审查时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}_"
+        )
+        mr.notes.create({'body': comment})
+
+    async def run(self, mr_iid: Optional[int] = None) -> None:
+        """运行审查流程"""
+        try:
+            if mr_iid:
+                mr = self.project.mergerequests.get(mr_iid)
+                mrs = [mr]
+            else:
+                mrs = await self.get_merge_requests()
+
+            for mr in mrs:
+                if not mr.has_conflicts:
+                    changes = self.get_changes(mr)
+                    for change in changes:
+                        review_comment = await self.review_code(change)
+                        if review_comment:
+                            self.post_review_comment(mr, change['new_path'], review_comment)
+                            print(f"Posted review for {change['new_path']}")
+        except Exception as e:
+            print(f"Error in review process: {str(e)}")
+            raise
+
 async def main():
     """CI 环境中的入口函数"""
     try:
@@ -114,7 +159,6 @@ async def main():
         print(f"GitLab Token: {gitlab_token}")
         print(f"DeepSeek API Key: {os.getenv('DEEPSEEK_API_KEY')}")
         print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')}")
-        print(f"GITLAB_API_TOKEN2: {os.getenv('GITLAB_API_TOKEN')}")
         
         # 验证必要的环境变量
         if not all([gitlab_url, gitlab_token, project_id, mr_iid]):
