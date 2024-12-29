@@ -114,6 +114,7 @@ async def main():
         print(f"GitLab Token: {gitlab_token}")
         print(f"DeepSeek API Key: {os.getenv('DEEPSEEK_API_KEY')}")
         print(f"OpenAI API Key: {os.getenv('OPENAI_API_KEY')}")
+        print(f"GITLAB_API_TOKEN2: {os.getenv("GITLAB_API_TOKEN")}")
         
         # 验证必要的环境变量
         if not all([gitlab_url, gitlab_token, project_id, mr_iid]):
