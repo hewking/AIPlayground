@@ -27,9 +27,16 @@ class GitLabAIReviewer:
     def _init_llm(self, model_type: str) -> BaseLLM:
         """初始化 LLM 模型"""
         if model_type == "deepseek":
-            return DeepSeekLLM()
+            # 优先使用 CI 环境变量中的 API key
+            api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not api_key:
+                raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
+            return DeepSeekLLM(api_key=api_key)
         elif model_type == "openai":
-            return OpenAILLM()
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found in environment variables")
+            return OpenAILLM(api_key=api_key)
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -86,7 +93,8 @@ async def main():
         # 从 CI 环境变量获取值
         if os.getenv("CI_SERVER_URL"):  # 检查是否在 CI 环境中
             gitlab_url = os.getenv("CI_SERVER_URL")
-            gitlab_token = os.getenv("GITLAB_API_TOKEN")
+            # 尝试两个可能的变量名
+            gitlab_token = os.getenv("GITLAB_API_TOKEN") or os.getenv("GITLAB_TOKEN")
             project_id = os.getenv("CI_PROJECT_ID")
             mr_iid = os.getenv("CI_MERGE_REQUEST_IID")
         else:
