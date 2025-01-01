@@ -22,19 +22,13 @@ ai-code-review:
     - pip install --upgrade pip
     - pip install -r requirements.txt
   script:
-    - |
-      cat > review_runner.py << EOL
-      import asyncio
-      import os
-      from gitlab_ai_reviewer import GitLabAIReviewer, main
-
-      if __name__ == "__main__":
-          # CI/CD 环境中的 MR 信息
-          os.environ["GITLAB_PROJECT_ID"] = os.environ["CI_PROJECT_ID"]
-          os.environ["REVIEW_MR_IID"] = os.environ["CI_MERGE_REQUEST_IID"]
-          
-          asyncio.run(main())
-      EOL
+    - echo 'import asyncio' > review_runner.py
+    - echo 'import os' >> review_runner.py
+    - echo 'from gitlab_ai_reviewer import GitLabAIReviewer, main' >> review_runner.py
+    - echo 'if __name__ == "__main__":' >> review_runner.py
+    - echo '    os.environ["GITLAB_PROJECT_ID"] = os.environ["CI_PROJECT_ID"]' >> review_runner.py
+    - echo '    os.environ["REVIEW_MR_IID"] = os.environ["CI_MERGE_REQUEST_IID"]' >> review_runner.py
+    - echo '    asyncio.run(main())' >> review_runner.py
     - python review_runner.py
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -42,8 +36,11 @@ ai-code-review:
     - when: never
   variables:
     GITLAB_URL: ${CI_SERVER_URL}
-    GITLAB_TOKEN: ${GITLAB_API_TOKEN}
+    GITLAB_API_TOKEN: ${GITLAB_API_TOKEN}
+    GITLAB_PROJECT_ID: ${CI_PROJECT_ID}
+    REVIEW_MR_IID: ${CI_MERGE_REQUEST_IID}
     REVIEW_MODEL: "deepseek"
     DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
     OPENAI_API_KEY: ${OPENAI_API_KEY}
     PYTHONPATH: "${CI_PROJECT_DIR}"
+    CI_DEBUG_TRACE: "true"
